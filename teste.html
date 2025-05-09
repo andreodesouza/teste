@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel de Mídia</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 30px auto; }
+    input, button { margin: 8px 0; padding: 8px; width: 100%; }
+    #painel { display: none; }
+  </style>
+</head>
+<body>
+  <h2>Login</h2>
+  <div id="login">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="senha" placeholder="Senha">
+    <button id="btnLogin">Entrar</button>
+    <p id="erro" style="color:red"></p>
+  </div>
+
+  <div id="painel">
+    <h2>Painel de Mídia</h2>
+    <input type="text" id="deviceToken" placeholder="Token do dispositivo">
+    <input type="file" id="arquivo">
+    <select id="tipo">
+      <option value="imagem">Imagem</option>
+      <option value="video">Vídeo</option>
+    </select>
+    <button id="btnEnviar">Enviar</button>
+    <p id="status"></p>
+    <button id="btnLogout">Sair</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+    import { getDatabase, ref as dbRef, set } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-database.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-analytics.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiGSEiDabNKqGMzh1DjaKHVBVrmmdp9rY",
+      authDomain: "aos-play-16b0c.firebaseapp.com",
+      databaseURL: "https://aos-play-16b0c-default-rtdb.firebaseio.com",
+      projectId: "aos-play-16b0c",
+      storageBucket: "aos-play-16b0c.appspot.com",
+      messagingSenderId: "246750109890",
+      appId: "1:246750109890:web:10a8b62d8d054aca329b5b",
+      measurementId: "G-ECVEMYQ502"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+    const storage = getStorage(app);
+
+    const loginDiv = document.getElementById('login');
+    const painelDiv = document.getElementById('painel');
+    const erroMsg = document.getElementById('erro');
+
+    document.getElementById('btnLogin').addEventListener('click', () => {
+      const email = document.getElementById('email').value;
+      const senha = document.getElementById('senha').value;
+
+      signInWithEmailAndPassword(auth, email, senha)
+        .then(() => {
+          loginDiv.style.display = 'none';
+          painelDiv.style.display = 'block';
+        })
+        .catch(e => erroMsg.innerText = e.message);
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => {
+      signOut(auth).then(() => location.reload());
+    });
+
+    document.getElementById('btnEnviar').addEventListener('click', async () => {
+      const file = document.getElementById('arquivo').files[0];
+      const token = document.getElementById('deviceToken').value;
+      const tipo = document.getElementById('tipo').value;
+      const status = document.getElementById('status');
+
+      if (!file || !token) {
+        alert('Preencha todos os campos.');
+        return;
+      }
+
+      const nome = Date.now() + '_' + file.name;
+      const fileRef = storageRef(storage, 'midias/' + nome);
+
+      status.innerText = 'Enviando...';
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+
+      await set(dbRef(database, 'comandos/' + token), {
+        midia_url: url,
+        tipo: tipo,
+        atualizado_em: new Date().toISOString()
+      });
+
+      status.innerText = 'Mídia enviada com sucesso!';
+    });
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        loginDiv.style.display = 'none';
+        painelDiv.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
